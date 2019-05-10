@@ -3,7 +3,10 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+#include <utility>
 #include <unordered_set>
+#include <unordered_map>
 
 namespace yare
 {
@@ -16,7 +19,7 @@ str_to_utf8(const std::string &str)
     auto reading = reinterpret_cast<const unsigned char*>(str.c_str());
 	while (*reading)
 	{
-        std::u32string::value_type temp;
+        char32_t temp;
 
 		if (*reading < 0b10000000U) result.push_back(*reading++);
 		else if (*reading < 0b11100000U)
@@ -41,7 +44,6 @@ str_to_utf8(const std::string &str)
     }
     return result;
 }
-}
 
 inline std::string
 utf8_to_str(const std::u32string &str)
@@ -58,13 +60,34 @@ utf8_to_str(const std::u32string &str)
     return result;
 }
 
-struct NFAState
-{
-    enum class EdgeType {
-        EPSLION, CCL, EMPTY
-    } edgt_type;
+using Scope = std::pair<char32_t, char32_t>;
 
-    
+struct NFANode
+{
+    enum class EdgeType
+    {
+        EPSLION, CCL, EMPTY
+    };
+
+    EdgeType edge_type;
+    std::unordered_set<Scope> scopes;
+    std::shared_ptr<NFANode> next, next2;
+
+    NFANode() : next(nullptr), next2(nullptr) {}
+};
+
+struct DFAState
+{
+    enum class State
+    {
+        NORMAL, END
+    };
+
+    State state;
+    std::unordered_map<Scope, std::shared_ptr<DFAState>> scope_state;
+
+    DFAState() : state(State::NORMAL) {}
+    DFAState(State state) : state(state) {}
 };
 } // namespace details
 
@@ -109,7 +132,6 @@ matches(const std::string &pattern, const std::string &str)
 {
     return Pattern(pattern).matches(str);
 }
-
 } // namespace yare
 
 #endif // YETANOTHERREGEX_HPP

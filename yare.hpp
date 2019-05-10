@@ -62,7 +62,7 @@ utf8_to_str(const std::u32string &str)
 
 using Scope = std::pair<char32_t, char32_t>;
 
-struct NFANode
+struct NFAState
 {
     enum class EdgeType
     {
@@ -71,9 +71,10 @@ struct NFANode
 
     EdgeType edge_type;
     std::unordered_set<Scope> scopes;
-    std::shared_ptr<NFANode> next, next2;
+    std::shared_ptr<NFAState> next;
+    std::shared_ptr<NFAState> next2;
 
-    NFANode() : next(nullptr), next2(nullptr) {}
+    NFAState() : next(nullptr), next2(nullptr) {}
 };
 
 struct DFAState
@@ -88,6 +89,49 @@ struct DFAState
 
     DFAState() : state(State::NORMAL) {}
     DFAState(State state) : state(state) {}
+};
+
+class NFAPair
+{
+  public:
+    std::shared_ptr<NFAState> start;
+    std::shared_ptr<NFAState> end;
+
+    NFAPair() : start(std::make_shared<NFAState>()), end(std::make_shared<NFAState>()) {}
+    NFAPair(std::shared_ptr<NFAState> start, std::shared_ptr<NFAState> end) : start(start), end(end) {}
+
+    std::shared_ptr<DFAState> to_dfa();
+
+  private:
+    void add2rS(std::unordered_set<std::shared_ptr<NFAState>> &rS, const std::shared_ptr<NFAState> &s)
+    {
+        rS.insert(s);
+        if (s->edge_type == NFAState::EdgeType::EPSLION)
+        {
+            if (!rS.count(s->next)) add2rS(rS, s->next);
+            if (!rS.count(s->next2)) add2rS(rS, s->next2);
+        }
+    }
+
+    std::unordered_set<std::shared_ptr<NFAState>>
+    eps_closure(const std::unordered_set<std::shared_ptr<NFAState>> &S)
+    {
+        std::unordered_set<std::shared_ptr<NFAState>> rS;
+        for (auto &s: S) add2rS(rS, s);
+        return rS;
+    }
+
+    std::unordered_set<std::shared_ptr<NFAState>>
+    delta(std::unordered_set<std::shared_ptr<NFAState>> &q, char32_t c)
+    {
+
+    }
+
+    std::shared_ptr<DFAState>
+    dfa_minimization(std::vector<std::shared_ptr<DFAState>> &mp)
+    {
+
+    }
 };
 } // namespace details
 

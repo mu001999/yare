@@ -311,8 +311,8 @@ class NFAPair
                     }
                     else if (pre.second > scope.second)
                     {
-                        result.back().second = scope.second - 1;
-                        result.push_back({ scope.second, pre.second });
+                        result.back().second = scope.second;
+                        result.push_back({ scope.second + 1, pre.second });
                     }
                 }
             }
@@ -770,7 +770,7 @@ class Parse
             char32_t start = kChar32Min;
             for (auto scope : sorted_scopes)
             {
-                if (scope.first < start)
+                if (start < scope.first)
                 {
                     temp.insert({ start, scope.first - 1 });
                     start = scope.second + 1;
@@ -778,6 +778,8 @@ class Parse
                 else if (scope.second >= start) start = scope.second + 1;
             }
             temp.insert({ start, kChar32Max });
+
+            scopes = temp;
         }
 
         return std::make_shared<BracketNode>(scopes);

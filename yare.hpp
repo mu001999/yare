@@ -156,7 +156,7 @@ struct NFAState
     NFAPtr next;
     NFAPtr next2;
 
-    NFAState() : next(nullptr), next2(nullptr) {}
+    NFAState() : edge_type(EdgeType::EMPTY), next(nullptr), next2(nullptr) {}
 
     bool contains_scope(const Scope &scope)
     {
@@ -288,9 +288,10 @@ class NFAPair
             else if (result.back().second < scope.first) result.push_back(scope);
             else
             {
-                auto &pre = result.back();
+                auto pre = result.back();
                 if (pre.first < scope.first)
                 {
+                    result.back().second = scope.first - 1;
                     if (pre.second < scope.second)
                     {
                         result.push_back({ scope.first, pre.second });
@@ -301,7 +302,6 @@ class NFAPair
                         result.push_back(scope);
                         if (pre.second > scope.second) result.push_back({ scope.second + 1, pre.second });
                     }
-                    pre.second = scope.first - 1;
                 }
                 else // pre.first == scope.first
                 {
@@ -311,8 +311,8 @@ class NFAPair
                     }
                     else if (pre.second > scope.second)
                     {
+                        result.back().second = scope.second - 1;
                         result.push_back({ scope.second, pre.second });
-                        pre.second = scope.second - 1;
                     }
                 }
             }

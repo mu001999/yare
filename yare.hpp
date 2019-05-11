@@ -163,7 +163,6 @@ struct NFAState
         for (const auto &s : scopes)
         {
             if (s.first <= scope.first && scope.second <= s.second) return true;
-            else if (scope.first < s.first) return false;
         }
         return false;
     }
@@ -187,7 +186,6 @@ struct DFAState
         for (const auto &scope_s : scope_state)
         {
             if (scope_s.first.first <= scope.first && scope.second <= scope_s.first.second) return true;
-            else if (scope.first < scope_s.first.first) return false;
         }
         return false;
     }
@@ -197,7 +195,6 @@ struct DFAState
         for (const auto &scope_s : scope_state)
         {
             if (scope_s.first.first <= chr && chr <= scope_s.first.second) return true;
-            else if (chr < scope_s.first.first) return false;
         }
         return false;
     }
@@ -235,9 +232,11 @@ class NFAPair
         auto q0 = eps_closure({ start });
         std::vector<std::set<NFAPtr>> Q = {q0};
         std::list<std::set<NFAPtr>> work_list= {q0};
-        std::vector<DFAPtr> mp = {
-            std::make_shared<DFAState>((std::find(q0.begin(), q0.end(), end) != q0.end()) ? DFAState::State::END : DFAState::State::NORMAL)
-        };
+        std::vector<DFAPtr> mp = {std::make_shared<DFAState>(
+            (std::find(q0.begin(), q0.end(), end) != q0.end()) 
+            ? DFAState::State::END
+            : DFAState::State::NORMAL
+        )};
 
         while (!work_list.empty())
         {
@@ -246,15 +245,27 @@ class NFAPair
             {
                 auto t = eps_closure(delta(q, scope));
                 if (t.empty()) continue;
+
                 for (int i = 0, j = -1; i < (int)Q.size() && j == -1; ++i) if (Q[i] == q)
                 {
-                    while (++j < (int)Q.size()) if (Q[j] == t && (mp[i]->scope_state[scope] = mp[j]) == mp[j]) break;
+                    while (++j < (int)Q.size())
+                    {
+                        if (Q[j] == t)
+                        {
+                            mp[i]->scope_state[scope] = mp[j];
+                            break;
+                        }
+                    }
 
                     if (j == (int)Q.size())
                     {
                         Q.push_back(t);
                         work_list.push_back(t);
-                        mp.push_back(std::make_shared<DFAState>((std::find(t.begin(), t.end(), end) != t.end()) ? DFAState::State::END : DFAState::State::NORMAL));
+                        mp.push_back(std::make_shared<DFAState>(
+                            (std::find(t.begin(), t.end(), end) != t.end())
+                            ? DFAState::State::END
+                            : DFAState::State::NORMAL
+                        ));
                         mp[i]->scope_state[scope] = mp.back();
                     }
                 }
@@ -300,8 +311,8 @@ class NFAPair
                     }
                     else if (pre.second > scope.second)
                     {
-                        result.push_back({ scope.second + 1, pre.second });
-                        pre.second = scope.second;
+                        result.push_back({ scope.second, pre.second });
+                        pre.second = scope.second - 1;
                     }
                 }
             }
@@ -616,8 +627,8 @@ class DotNode : public Node
         ptr->start->edge_type = NFAState::EdgeType::CCL;
         ptr->end->edge_type = NFAState::EdgeType::EMPTY;
         ptr->start->next = ptr->end;
-        ptr->start->scopes.insert({ kChar32Min, 1023ULL });
-        ptr->start->scopes.insert({ 1025ULL, std::numeric_limits<char32_t>::lowest() });
+        ptr->start->scopes.insert({ kChar32Min, 31ULL });
+        ptr->start->scopes.insert({ 33ULL, kChar32Max });
 
         return ptr;
     }

@@ -290,20 +290,24 @@ class NFAPair
                     continue;
                 }
 
-                for (int i = 0, j = -1; i < (int)Q.size() && j == -1; ++i)
+                for (std::size_t i = 0, j = 0; i < Q.size(); ++i)
                 {
                     if (Q[i] == q)
                     {
-                        while (++j < (int)Q.size())
+                        while (j < Q.size())
                         {
                             if (Q[j] == t)
                             {
                                 mp[i]->scope_state[scope] = mp[j];
                                 break;
                             }
+                            else
+                            {
+                                ++j;
+                            }
                         }
 
-                        if (j == (int)Q.size())
+                        if (j == Q.size())
                         {
                             Q.push_back(t);
                             work_list.push_back(t);
@@ -314,6 +318,8 @@ class NFAPair
                             ));
                             mp[i]->scope_state[scope] = mp.back();
                         }
+
+                        break;
                     }
                 }
             }
@@ -451,20 +457,20 @@ class NFAPair
 
         auto indexof_inmp = [&](std::shared_ptr<DFAState> state)
         {
-            for (int i = 0; i < (int)mp.size(); ++i)
+            for (std::size_t i = 0; i < mp.size(); ++i)
             {
                 if (mp[i] == state)
                 {
                     return i;
                 }
             }
-            return -1;
+            return std::numeric_limits<std::size_t>::max();
         };
 
         {
             std::vector<std::set<int>> _T = {{}, {}};
 
-            for (int i = 0; i < (int)mp.size(); ++i)
+            for (std::size_t i = 0; i < mp.size(); ++i)
             {
                 _T[mp[i]->state == DFAState::State::END].insert(i);
             }
@@ -542,7 +548,7 @@ class NFAPair
         }
 
         std::vector<std::shared_ptr<DFAState>> states;
-        for (int i = 0; i < (int)T.size(); ++i)
+        for (std::size_t i = 0; i < T.size(); ++i)
         {
             states.push_back(std::make_shared<DFAState>());
         }
@@ -553,17 +559,17 @@ class NFAPair
 
             auto indexof_inp = [&](std::shared_ptr<DFAState> state)
             {
-                for (int i = 0, k = indexof_inmp(state); i < (int)P.size(); ++i)
+                for (std::size_t i = 0, k = indexof_inmp(state); i < P.size(); ++i)
                 {
                     if (P[i].count(k))
                     {
                         return i;
                     }
                 }
-                return -1;
+                return std::numeric_limits<std::size_t>::max();
             };
 
-            for (int i = 0; i < (int)P.size(); ++i)
+            for (std::size_t i = 0; i < P.size(); ++i)
             {
                 for (auto &k: P[i])
                 {

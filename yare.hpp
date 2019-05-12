@@ -366,7 +366,7 @@ class NFAPair
             }
             else if (a.first == b.first)
             {
-                return a.second == Start;
+                return a.second < b.second;
             }
             else 
             {

@@ -17,35 +17,44 @@ namespace yare
 {
 namespace details
 {
+constexpr char32_t kChar32Min = std::numeric_limits<char32_t>::min();
+constexpr char32_t kChar32Max = std::numeric_limits<char32_t>::max();
+
 inline std::u32string
 str_to_utf8(const std::string &str)
 {
     std::u32string result;
-    auto reading = reinterpret_cast<const unsigned char*>(str.c_str());
+    auto reading = reinterpret_cast<const unsigned char *>(str.c_str());
 	while (*reading)
 	{
         char32_t temp;
 
-		if (*reading < 0b10000000U) result.push_back(*reading++);
+		if (*reading < 0b10000000U)
+        {
+            result.push_back(*reading++);
+        }
 		else if (*reading < 0b11100000U)
 		{
 			(temp = *reading++) <<= 8;
-			result += (temp |= *reading++);
+			result.push_back(temp |= *reading++);
 		}
 		else if (*reading < 0b11110000U)
 		{
-			(temp = *reading++) <<= 8;
+			(temp  = *reading++) <<= 8;
 			(temp |= *reading++) <<= 8;
-			result += (temp |= *reading++);
+			result.push_back(temp |= *reading++);
 		}
 		else if (*reading < 0b11111000U)
 		{
-			(temp = *reading++) <<= 8;
+			(temp  = *reading++) <<= 8;
 			(temp |= *reading++) <<= 8;
 			(temp |= *reading++) <<= 8;
-			result += (temp |= *reading++);
+			result.push_back(temp |= *reading++);
 		}
-		else break;
+		else
+        {
+            break;
+        }
     }
     return result;
 }
@@ -56,21 +65,36 @@ utf8_to_str(const std::u32string &str)
     std::string result;
     for (auto chr : str)
     {
-        if (chr < 0b10000000U) result += chr;
-        else if (chr < 0b111U << 13) (result += chr >> 8 & 0xFF) += chr & 0xFF;
-        else if (chr < 0b1111U << 20) ((result += chr >> 16 & 0xFF) += chr >> 8 & 0xFF) += chr & 0xFF;
-        else if (chr < 0b11111U << 27) (((result += chr >> 24 & 0xFF) += chr >> 16 & 0xFF) += chr >> 8 & 0xFF) += chr & 0xFF;
+        if (chr < 0b10000000U)
+        {
+            result += chr;
+        }
+        else if (chr < 0b111U << 13)
+        {
+            result += chr >> 8 & 0xFF;
+            result += chr      & 0xFF;
+        }
+        else if (chr < 0b1111U << 20)
+        {
+            result += chr >> 16 & 0xFF;
+            result += chr >>  8 & 0xFF;
+            result += chr       & 0xFF;
+        }
+        else if (chr < 0b11111U << 27)
+        {
+            result += chr >> 24 & 0xFF;
+            result += chr >> 16 & 0xFF;
+            result += chr >>  8 & 0xFF;
+            result += chr       & 0xFF;
+        }
         else break;
     }
     return result;
 }
 
-using Scope = std::pair<char32_t, char32_t>;
+using Scope  = std::pair<char32_t, char32_t>;
 using NFAPtr = std::shared_ptr<struct NFAState>;
 using DFAPtr = std::shared_ptr<struct DFAState>;
-
-constexpr char32_t kChar32Min = std::numeric_limits<char32_t>::min();
-constexpr char32_t kChar32Max = std::numeric_limits<char32_t>::max();
 
 inline std::set<Scope> SPACES
 {
@@ -162,7 +186,10 @@ struct NFAState
     {
         for (const auto &s : scopes)
         {
-            if (s.first <= scope.first && scope.second <= s.second) return true;
+            if (s.first <= scope.first && scope.second <= s.second)
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -185,7 +212,10 @@ struct DFAState
     {
         for (const auto &scope_s : scope_state)
         {
-            if (scope_s.first.first <= scope.first && scope.second <= scope_s.first.second) return true;
+            if (scope_s.first.first <= scope.first && scope.second <= scope_s.first.second)
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -194,7 +224,10 @@ struct DFAState
     {
         for (const auto &scope_s : scope_state)
         {
-            if (scope_s.first.first <= chr && chr <= scope_s.first.second) return true;
+            if (scope_s.first.first <= chr && chr <= scope_s.first.second)
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -203,7 +236,10 @@ struct DFAState
     {
         for (const auto &scope_s : scope_state)
         {
-            if (scope_s.first.first <= scope.first && scope.second <= scope_s.first.second) return scope_s.second;
+            if (scope_s.first.first <= scope.first && scope.second <= scope_s.first.second)
+            {
+                return scope_s.second;
+            }
         }
         return nullptr;
     }
@@ -212,7 +248,10 @@ struct DFAState
     {
         for (const auto &scope_s : scope_state)
         {
-            if (scope_s.first.first <= chr && chr <= scope_s.first.second) return scope_s.second;
+            if (scope_s.first.first <= chr && chr <= scope_s.first.second)
+            {
+                return scope_s.second;
+            }
         }
         return nullptr;
     }
@@ -240,33 +279,41 @@ class NFAPair
 
         while (!work_list.empty())
         {
-            auto q = work_list.back(); work_list.pop_back();
+            auto q = work_list.back();
+            work_list.pop_back();
+
             for (auto scope : cal_scopes(q))
             {
                 auto t = eps_closure(delta(q, scope));
-                if (t.empty()) continue;
-
-                for (int i = 0, j = -1; i < (int)Q.size() && j == -1; ++i) if (Q[i] == q)
+                if (t.empty())
                 {
-                    while (++j < (int)Q.size())
-                    {
-                        if (Q[j] == t)
-                        {
-                            mp[i]->scope_state[scope] = mp[j];
-                            break;
-                        }
-                    }
+                    continue;
+                }
 
-                    if (j == (int)Q.size())
+                for (int i = 0, j = -1; i < (int)Q.size() && j == -1; ++i)
+                {
+                    if (Q[i] == q)
                     {
-                        Q.push_back(t);
-                        work_list.push_back(t);
-                        mp.push_back(std::make_shared<DFAState>(
-                            (std::find(t.begin(), t.end(), end) != t.end())
-                            ? DFAState::State::END
-                            : DFAState::State::NORMAL
-                        ));
-                        mp[i]->scope_state[scope] = mp.back();
+                        while (++j < (int)Q.size())
+                        {
+                            if (Q[j] == t)
+                            {
+                                mp[i]->scope_state[scope] = mp[j];
+                                break;
+                            }
+                        }
+
+                        if (j == (int)Q.size())
+                        {
+                            Q.push_back(t);
+                            work_list.push_back(t);
+                            mp.push_back(std::make_shared<DFAState>(
+                                (std::find(t.begin(), t.end(), end) != t.end())
+                                ? DFAState::State::END
+                                : DFAState::State::NORMAL
+                            ));
+                            mp[i]->scope_state[scope] = mp.back();
+                        }
                     }
                 }
             }
@@ -279,13 +326,20 @@ class NFAPair
     std::vector<Scope> cal_scopes(std::vector<Scope> &scopes)
     {
         std::vector<Scope> result;
-        std::sort(scopes.begin(), scopes.end(), [](Scope a, Scope b){
+        std::sort(scopes.begin(), scopes.end(), [](Scope a, Scope b)
+        {
             return a.first < b.first;
         });
         for (auto &scope : scopes)
         {
-            if (result.empty()) result.push_back(scope);
-            else if (result.back().second < scope.first) result.push_back(scope);
+            if (result.empty())
+            {
+                result.push_back(scope);
+            }
+            else if (result.back().second < scope.first)
+            {
+                result.push_back(scope);
+            }
             else
             {
                 auto pre = result.back();
@@ -300,7 +354,10 @@ class NFAPair
                     else
                     {
                         result.push_back(scope);
-                        if (pre.second > scope.second) result.push_back({ scope.second + 1, pre.second });
+                        if (pre.second > scope.second)
+                        {
+                            result.push_back({ scope.second + 1, pre.second });
+                        }
                     }
                 }
                 else // pre.first == scope.first
@@ -323,14 +380,26 @@ class NFAPair
     std::vector<Scope> cal_scopes(const std::set<NFAPtr> &q)
     {
         std::vector<Scope> temp;
-        for (auto &state : q) for (auto &scope : state->scopes) temp.push_back(scope);
+        for (auto &state : q)
+        {
+            for (auto &scope : state->scopes)
+            {
+                temp.push_back(scope);
+            }
+        }
         return cal_scopes(temp);
     }
 
     std::vector<Scope> cal_scopes(const std::set<DFAPtr> &q)
     {
         std::vector<Scope> temp;
-        for (auto &state : q) for (auto &scope_s : state->scope_state) temp.push_back(scope_s.first);
+        for (auto &state : q)
+        {
+            for (auto &scope_s : state->scope_state)
+            {
+                temp.push_back(scope_s.first);
+            }
+        }
         return cal_scopes(temp);
     }
 
@@ -339,8 +408,14 @@ class NFAPair
         rS.insert(s);
         if (s->edge_type == NFAState::EdgeType::EPSILON)
         {
-            if (!rS.count(s->next)) add2rS(rS, s->next);
-            if (s->next2 && !rS.count(s->next2)) add2rS(rS, s->next2);
+            if (!rS.count(s->next))
+            {
+                add2rS(rS, s->next);
+            }
+            if (s->next2 && !rS.count(s->next2))
+            {
+                add2rS(rS, s->next2);
+            }
         }
     }
 
@@ -348,7 +423,10 @@ class NFAPair
     eps_closure(const std::set<NFAPtr> &S)
     {
         std::set<NFAPtr> rS;
-        for (auto &s: S) add2rS(rS, s);
+        for (auto &s: S)
+        {
+            add2rS(rS, s);
+        }
         return rS;
     }
 
@@ -356,7 +434,13 @@ class NFAPair
     delta(std::set<NFAPtr> &q, const Scope &scope)
     {
         std::set<NFAPtr> rq;
-        for (auto &s : q) if (s->edge_type == NFAState::EdgeType::CCL && s->contains_scope(scope)) rq.insert(s->next);
+        for (auto &s : q)
+        {
+            if (s->edge_type == NFAState::EdgeType::CCL && s->contains_scope(scope))
+            {
+                rq.insert(s->next);
+            }
+        }
         return rq;
     }
 
@@ -367,14 +451,23 @@ class NFAPair
 
         auto indexof_inmp = [&](std::shared_ptr<DFAState> state)
         {
-            for (int i = 0; i < (int)mp.size(); ++i) if (mp[i] == state) return i;
+            for (int i = 0; i < (int)mp.size(); ++i)
+            {
+                if (mp[i] == state)
+                {
+                    return i;
+                }
+            }
             return -1;
         };
 
         {
             std::vector<std::set<int>> _T = {{}, {}};
 
-            for (int i = 0; i < (int)mp.size(); ++i) _T[mp[i]->state == DFAState::State::END].insert(i);
+            for (int i = 0; i < (int)mp.size(); ++i)
+            {
+                _T[mp[i]->state == DFAState::State::END].insert(i);
+            }
 
             T.insert(_T[0]); T.insert(_T[1]);
         }
@@ -383,7 +476,10 @@ class NFAPair
         {
             std::vector<std::set<int>> res = {S};
             std::set<DFAPtr> dfaptrs;
-            for (auto i : S) dfaptrs.insert(mp[i]);
+            for (auto i : S)
+            {
+                dfaptrs.insert(mp[i]);
+            }
 
             for (auto scope : cal_scopes(dfaptrs))
             {
@@ -400,18 +496,27 @@ class NFAPair
                         {
                             if (it->count(k))
                             {
-                                if (it == flag_it) s1.insert(i);
+                                if (it == flag_it)
+                                {
+                                    s1.insert(i);
+                                }
                                 else if (flag_it == P.end())
                                 {
                                     flag_it = it;
                                     s1.insert(i);
                                 }
-                                else s2.insert(i);
+                                else
+                                {
+                                    s2.insert(i);
+                                }
                                 break;
                             }
                         }
                     }
-                    else s2.insert(i);
+                    else
+                    {
+                        s2.insert(i);
+                    }
                 }
 
                 if (s1.size() && s2.size())
@@ -425,12 +530,22 @@ class NFAPair
 
         while (P != T)
         {
-            P = T; T.clear();
-            for (auto &p: P) for (auto &_p: split(p)) T.insert(_p);
+            P = T;
+            T.clear();
+            for (auto &p: P)
+            {
+                for (auto &_p: split(p))
+                {
+                    T.insert(_p);
+                }
+            }
         }
 
         std::vector<std::shared_ptr<DFAState>> states;
-        for (int i = 0; i < (int)T.size(); ++i) states.push_back(std::make_shared<DFAState>());
+        for (int i = 0; i < (int)T.size(); ++i)
+        {
+            states.push_back(std::make_shared<DFAState>());
+        }
         std::shared_ptr<DFAState> start = nullptr;
 
         {
@@ -438,7 +553,13 @@ class NFAPair
 
             auto indexof_inp = [&](std::shared_ptr<DFAState> state)
             {
-                for (int i = 0, k = indexof_inmp(state); i < (int)P.size(); ++i) if (P[i].count(k)) return i;
+                for (int i = 0, k = indexof_inmp(state); i < (int)P.size(); ++i)
+                {
+                    if (P[i].count(k))
+                    {
+                        return i;
+                    }
+                }
                 return -1;
             };
 
@@ -446,9 +567,18 @@ class NFAPair
             {
                 for (auto &k: P[i])
                 {
-                    if (mp[k]->state == DFAState::State::END) states[i]->state = DFAState::State::END;
-                    if (k == 0) start = states[i];
-                    for (auto scope_s: mp[k]->scope_state) states[i]->scope_state[scope_s.first] = states[indexof_inp(scope_s.second)];
+                    if (mp[k]->state == DFAState::State::END)
+                    {
+                        states[i]->state = DFAState::State::END;
+                    }
+                    if (k == 0)
+                    {
+                        start = states[i];
+                    }
+                    for (auto scope_s: mp[k]->scope_state)
+                    {
+                        states[i]->scope_state[scope_s.first] = states[indexof_inp(scope_s.second)];
+                    }
                 }
             }
         }
@@ -460,7 +590,9 @@ class Node
 {
   public:
     virtual ~Node() {}
-    virtual std::shared_ptr<NFAPair> compile() = 0;
+
+    virtual std::shared_ptr<NFAPair>
+    compile() = 0;
 };
 
 class LeafNode : public Node
@@ -470,7 +602,9 @@ class LeafNode : public Node
 
   public:
     LeafNode(char32_t c) : leaf(c) {}
-    virtual std::shared_ptr<NFAPair> compile()
+    
+    virtual std::shared_ptr<NFAPair>
+    compile()
     {
         auto ptr = std::make_shared<NFAPair>();
 
@@ -486,11 +620,14 @@ class LeafNode : public Node
 class CatNode : public Node
 {
   private:
-    std::shared_ptr<Node> left, right;
+    std::shared_ptr<Node> left;
+    std::shared_ptr<Node> right;
 
   public:
     CatNode(std::shared_ptr<Node> left, std::shared_ptr<Node> right) : left(left), right(right) {}
-    virtual std::shared_ptr<NFAPair> compile()
+
+    virtual std::shared_ptr<NFAPair>
+    compile()
     {
         auto left = this->left->compile();
         auto right = this->right->compile();
@@ -506,11 +643,14 @@ class CatNode : public Node
 class SelectNode : public Node
 {
   private:
-    std::shared_ptr<Node> left, right;
+    std::shared_ptr<Node> left;
+    std::shared_ptr<Node> right;
 
   public:
     SelectNode(std::shared_ptr<Node> left, std::shared_ptr<Node> right) : left(left), right(right) {}
-    virtual std::shared_ptr<NFAPair> compile()
+
+    virtual std::shared_ptr<NFAPair>
+    compile()
     {
         auto left = this->left->compile();
         auto right = this->right->compile();
@@ -537,7 +677,9 @@ class ClosureNode : public Node
 
   public:
     ClosureNode(std::shared_ptr<Node> content) : content(content) {}
-    virtual std::shared_ptr<NFAPair> compile()
+
+    virtual std::shared_ptr<NFAPair>
+    compile()
     {
         auto content = this->content->compile();
         auto ptr = std::make_shared<NFAPair>();
@@ -559,12 +701,15 @@ class QualifierNode : public Node
 {
   private:
     std::shared_ptr<Node> content;
-    int n, m;
+    int n;
+    int m;
 
   public:
 
     QualifierNode(std::shared_ptr<Node> content, int n, int m) : content(content), n(n), m(m) {}
-    virtual std::shared_ptr<NFAPair> compile()
+
+    virtual std::shared_ptr<NFAPair>
+    compile()
     {
         auto ptr = std::make_shared<NFAPair>();
         ptr->end->edge_type = NFAState::EdgeType::EMPTY;
@@ -573,8 +718,14 @@ class QualifierNode : public Node
         if (m == -2) // for '{n}'
         {
             std::shared_ptr<Node> temp = (n > 0) ? content : nullptr;
-            for (int i = 1; i < n; ++i) temp = std::make_shared<CatNode>(temp, content);
-            if (temp) return temp->compile();
+            for (int i = 1; i < n; ++i)
+            {
+                temp = std::make_shared<CatNode>(temp, content);
+            }
+            if (temp)
+            {
+                return temp->compile();
+            }
             else
             {
                 ptr->start->edge_type = NFAState::EdgeType::EPSILON;
@@ -584,8 +735,13 @@ class QualifierNode : public Node
         else if (m == -1) // for '{n,}'
         {
             std::shared_ptr<Node> temp = (n > 0) ? content : nullptr;
-            for (int i = 1; i < n; ++i) temp = std::make_shared<CatNode>(temp, content);
-            return temp ? std::make_shared<CatNode>(temp, std::make_shared<ClosureNode>(content))->compile() : std::make_shared<ClosureNode>(content)->compile();
+            for (int i = 1; i < n; ++i)
+            {
+                temp = std::make_shared<CatNode>(temp, content);
+            }
+            return temp
+                   ? std::make_shared<CatNode>(temp, std::make_shared<ClosureNode>(content))->compile()
+                   : std::make_shared<ClosureNode>(content)->compile();
         }
         else if (n < m && n >= 0) // for '{n,m}'
         {
@@ -593,14 +749,20 @@ class QualifierNode : public Node
             auto pre = first;
             ptr->start->edge_type = NFAState::EdgeType::EPSILON;
             ptr->start->next = first->start;
-            if (n == 0) ptr->start->next2 = ptr->end;
+            if (n == 0)
+            {
+                ptr->start->next2 = ptr->end;
+            }
 
             for (int i = 1; i < m; ++i)
             {
                 auto now = content->compile();
                 pre->end->edge_type = NFAState::EdgeType::EPSILON;
                 pre->end->next = now->start;
-                if (i > n - 2) pre->end->next2 = ptr->end;
+                if (i > n - 2)
+                {
+                    pre->end->next2 = ptr->end;
+                }
                 pre = now;
             }
 
@@ -620,7 +782,8 @@ class QualifierNode : public Node
 class DotNode : public Node
 {
   public:
-    virtual std::shared_ptr<NFAPair> compile()
+    virtual std::shared_ptr<NFAPair>
+    compile()
     {
         auto ptr = std::make_shared<NFAPair>();
 
@@ -641,7 +804,9 @@ class BracketNode : public Node
 
   public:
     BracketNode(std::set<Scope> scopes) : scopes(scopes) {}
-    virtual std::shared_ptr<NFAPair> compile()
+
+    virtual std::shared_ptr<NFAPair>
+    compile()
     {
         auto ptr = std::make_shared<NFAPair>();
 
@@ -657,7 +822,8 @@ class BracketNode : public Node
 class Parse
 {
   private:
-    bool begin = false, end = false;
+    bool begin = false;
+    bool end   = false;
     std::map<std::string, std::shared_ptr<Node>> ref_map;
     
     char32_t
@@ -668,26 +834,42 @@ class Parse
         {
             switch (*reading)
             {
-            case '0': return '\0';
-            case 'a': return '\a';
-            case 'b': return '\b';
-            case 't': return '\t';
-            case 'n': return '\n';
-            case 'v': return '\v';
-            case 'f': return '\f';
-            case 'r': return '\r';
-            case 'e': return '\e';
+            case '0':
+                return '\0';
+            case 'a':
+                return '\a';
+            case 'b':
+                return '\b';
+            case 't':
+                return '\t';
+            case 'n':
+                return '\n';
+            case 'v':
+                return '\v';
+            case 'f':
+                return '\f';
+            case 'r':
+                return '\r';
+            case 'e':
+                return '\e';
             case 'c':
                 if (*(reading + 1) && (isalpha(*(reading + 1)) || (*(reading + 1) > 63 && *(reading + 1) < 94)))
                 {
                     ++reading;
                     return toupper(*reading) - 64;
                 }
-                else return 'c';
-            default: return *reading;
+                else
+                {
+                    return 'c';
+                }
+            default:
+                return *reading;
             }
         }
-        else return kChar32Max;
+        else
+        {
+            return kChar32Max;
+        }
     }
 
     std::set<Scope>
@@ -695,9 +877,18 @@ class Parse
     {
         auto res = translate_escape_chr(reading);
         std::set<Scope> ret;
-        if (ECMAP.count(res)) ret = ECMAP[res];
-        else left = res;
-        if (!range && ECMAP.count(res)) left = kChar32Max;
+        if (ECMAP.count(res))
+        {
+            ret = ECMAP[res];
+        }
+        else
+        {
+            left = res;
+        }
+        if (!range && ECMAP.count(res))
+        {
+            left = kChar32Max;
+        }
         return ret;
     }
 
@@ -707,8 +898,14 @@ class Parse
         std::shared_ptr<Node> node = nullptr;
         char32_t left = kChar32Max;
         auto res = translate_echr2scopes(left, reading, false);
-        if (left == kChar32Max) node = std::make_shared<BracketNode>(res);
-        else node = std::make_shared<LeafNode>(left);
+        if (left == kChar32Max)
+        {
+            node = std::make_shared<BracketNode>(res);
+        }
+        else
+        {
+            node = std::make_shared<LeafNode>(left);
+        }
         return node;
     }
 
@@ -724,14 +921,19 @@ class Parse
             ++reading;
             exclude = true;
         }
-        if (*reading == ']') return std::make_shared<BracketNode>(scopes);
+        if (*reading == ']')
+        {
+            return std::make_shared<BracketNode>(scopes);
+        }
 
         while (*reading && *reading != ']')
         {
             if (*reading == '-')
             {
-                if (range || left == kChar32Max);
-                else range = true;
+                if (!range && left != kChar32Max)
+                {
+                    range = true;
+                }
             }
             else if (range)
             {
@@ -740,29 +942,42 @@ class Parse
                     auto res = translate_echr2scopes(left, reading, true);
                     scopes.insert(res.begin(), res.end());
                 }
-                else scopes.insert({ left, *reading });
+                else
+                {
+                    scopes.insert({ left, *reading });
+                }
                 left = kChar32Max;
                 range = false;
             }
             else
             {
-                if (left != kChar32Max) scopes.insert({ left, left });
+                if (left != kChar32Max)
+                {
+                    scopes.insert({ left, left });
+                }
                 if (*reading == '\\')
                 {
                     auto res = translate_echr2scopes(left, reading, false);
                     scopes.insert(res.begin(), res.end());
                 }
-                else left = *reading;
+                else
+                {
+                    left = *reading;
+                }
             }
             ++reading;
         }
 
-        if (left != kChar32Max) scopes.insert({ left, left });
+        if (left != kChar32Max)
+        {
+            scopes.insert({ left, left });
+        }
 
         if (exclude)
         {
             std::vector<Scope> sorted_scopes(scopes.begin(), scopes.end());
-            std::sort(sorted_scopes.begin(), sorted_scopes.end(), [](Scope a, Scope b){
+            std::sort(sorted_scopes.begin(), sorted_scopes.end(), [](Scope a, Scope b)
+            {
                 return a.first < b.first;
             });
 
@@ -775,7 +990,10 @@ class Parse
                     temp.insert({ start, scope.first - 1 });
                     start = scope.second + 1;
                 }
-                else if (scope.second >= start) start = scope.second + 1;
+                else if (scope.second >= start)
+                {
+                    start = scope.second + 1;
+                }
             }
             temp.insert({ start, kChar32Max });
 
@@ -792,14 +1010,29 @@ class Parse
         if (*reading == '?')
         {
             ++reading;
-            if (*reading == ':') ++reading;
-            if (*reading == '<') ++reading;
+            if (*reading == ':')
+            {
+                ++reading;
+            }
+            if (*reading == '<')
+            {
+                ++reading;
+            }
             std::string name;
-            while (isalnum(*reading) || *reading == '_') name += *reading++;
-            if (*reading == '>') ++reading;
+            while (isalnum(*reading) || *reading == '_')
+            {
+                name += *reading++;
+            }
+            if (*reading == '>')
+            {
+                ++reading;
+            }
             if (*reading == ')')
             {
-                if (ref_map.count(name)) return ref_map[name];
+                if (ref_map.count(name))
+                {
+                    return ref_map[name];
+                }
             }
             else
             {
@@ -807,7 +1040,10 @@ class Parse
                 ref_map[name] = node;
             }
         }
-        else node = gen_node(reading);
+        else
+        {
+            node = gen_node(reading);
+        }
         return node;
     }
 
@@ -832,10 +1068,21 @@ class Parse
             ++reading;
             node = gen_bracket(reading);
         }
-        else if (*reading == '.') node = std::make_shared<DotNode>();
-        else if (*reading && *reading != '|' && *reading != ')') node = *reading == '\\' ? translate_echr2node(reading) : std::make_shared<LeafNode>(*reading);
+        else if (*reading == '.')
+        {
+            node = std::make_shared<DotNode>();
+        }
+        else if (*reading && *reading != '|' && *reading != ')')
+        {
+            node = *reading == '\\'
+                ? translate_echr2node(reading) 
+                : std::make_shared<LeafNode>(*reading);
+        }
 
-        if (!node) return node;
+        if (!node)
+        {
+            return node;
+        }
         ++reading;
 
         while (*reading && *reading != '|' && *reading != ')' && *reading != '$')
@@ -844,12 +1091,18 @@ class Parse
             {
             case '(':
                 ++reading;
-                if (right) node = std::make_shared<CatNode>(node, right);
+                if (right)
+                {
+                    node = std::make_shared<CatNode>(node, right);
+                }
                 right = gen_subexpr(reading);
                 break;
             case '[':
                 ++reading;
-                if (right) node = std::make_shared<CatNode>(node, right);
+                if (right)
+                {
+                    node = std::make_shared<CatNode>(node, right);
+                }
                 right = gen_bracket(reading);
                 break;
             case '{':
@@ -861,32 +1114,66 @@ class Parse
                     if (*reading == ',')
                     {
                         ++reading;
-                        m = isdigit(*reading) ? *reading++ - '0' : -1;
+                        m = isdigit(*reading)
+                            ? *reading++ - '0'
+                            : -1;
                     }
 
-                    if (right) right = std::make_shared<QualifierNode>(right, n, m);
-                    else node = std::make_shared<QualifierNode>(node, n, m);
+                    if (right)
+                    {
+                        right = std::make_shared<QualifierNode>(right, n, m);
+                    }
+                    else
+                    {
+                        node = std::make_shared<QualifierNode>(node, n, m);
+                    }
                 }
                 break;
             case '*':
-                if (right) right = std::make_shared<ClosureNode>(right);
-                else node = std::make_shared<ClosureNode>(node);
+                if (right)
+                {
+                    right = std::make_shared<ClosureNode>(right);
+                }
+                else
+                {
+                    node = std::make_shared<ClosureNode>(node);
+                }
                 break;
             case '+':
-                if (right) right = std::make_shared<QualifierNode>(right, 1, -1);
-                else node = std::make_shared<QualifierNode>(node, 1, -1);
+                if (right)
+                {
+                    right = std::make_shared<QualifierNode>(right, 1, -1);
+                }
+                else
+                {
+                    node = std::make_shared<QualifierNode>(node, 1, -1);
+                }
                 break;
             case '?':
-                if (right) right = std::make_shared<QualifierNode>(right, 0, 1);
-                else node = std::make_shared<QualifierNode>(node, 0, 1);
+                if (right)
+                {
+                    right = std::make_shared<QualifierNode>(right, 0, 1);
+                }
+                else
+                {
+                    node = std::make_shared<QualifierNode>(node, 0, 1);
+                }
                 break;
             case '.':
-                if (right) node = std::make_shared<CatNode>(node, right);
+                if (right)
+                {
+                    node = std::make_shared<CatNode>(node, right);
+                }
                 right = std::make_shared<DotNode>();
                 break;
             default:
-                if (right) node = std::make_shared<CatNode>(node, right);
-                right = *reading == '\\' ? translate_echr2node(reading) : std::make_shared<LeafNode>(*reading);
+                if (right)
+                {
+                    node = std::make_shared<CatNode>(node, right);
+                }
+                right = *reading == '\\'
+                    ? translate_echr2node(reading)
+                    : std::make_shared<LeafNode>(*reading);
                 break;
             }
             ++reading;
@@ -895,10 +1182,16 @@ class Parse
         if (*reading == '|')
         {
             ++reading;
-            if (right) node = std::make_shared<CatNode>(node, right);
+            if (right)
+            {
+                node = std::make_shared<CatNode>(node, right);
+            }
             node = std::make_shared<SelectNode>(node, gen_node(reading));
         }
-        else if (right) node = std::make_shared<CatNode>(node, right);
+        else if (right)
+        {
+            node = std::make_shared<CatNode>(node, right);
+        }
 
         if (*reading == '$')
         {
@@ -911,12 +1204,15 @@ class Parse
   public:
     Parse() {}
 
-    std::tuple<std::shared_ptr<DFAState>, bool, bool> gen_dfa(const char32_t *reading)
+    std::tuple<std::shared_ptr<DFAState>, bool, bool>
+    gen_dfa(const char32_t *reading)
     {
         std::shared_ptr<DFAState> dfa;
 
         auto node = gen_node(reading);
-        dfa = node ? node->compile()->to_dfa() : std::make_shared<DFAState>(DFAState::State::END);
+        dfa = node
+            ? node->compile()->to_dfa()
+            : std::make_shared<DFAState>(DFAState::State::END);
 
         return std::make_tuple(dfa, begin, end);
     }
@@ -929,40 +1225,58 @@ class Pattern
 
     void cal_next()
     {
-        if (dfa->scope_state.empty()) return;
+        if (dfa->scope_state.empty())
+        {
+            return;
+        }
 
         std::set<details::DFAPtr> caled = {dfa};
         std::vector<details::DFAPtr> states;
 
-        for (auto it: dfa->scope_state) if (!caled.count(it.second))
+        for (auto it: dfa->scope_state)
         {
-            next[it.second] = dfa;
-            caled.insert(it.second);
-            states.push_back(it.second);
+            if (!caled.count(it.second))
+            {
+                next[it.second] = dfa;
+                caled.insert(it.second);
+                states.push_back(it.second);
+            }
         }
 
         while (states.size())
         {
-            for (auto state: states) for (auto it: state->scope_state) if (!caled.count(it.second))
+            for (auto state: states) 
             {
-                auto _s = state;
-                while (_s != dfa)
+                for (auto it: state->scope_state)
                 {
-                    if (next[_s]->contains_scope(it.first))
+                    if (!caled.count(it.second))
                     {
-                        next[it.second] = _s;
-                        break;
+                        auto _s = state;
+                        while (_s != dfa)
+                        {
+                            if (next[_s]->contains_scope(it.first))
+                            {
+                                next[it.second] = _s;
+                                break;
+                            }
+                            else _s = next[_s];
+                        }
+                        if (!next.count(it.second)) next[it.second] = dfa;
                     }
-                    else _s = next[_s];
                 }
-                if (!next.count(it.second)) next[it.second] = dfa;
             }
 
             std::vector<details::DFAPtr> _ss;
-            for (auto state: states) for (auto it: state->scope_state) if (!caled.count(it.second))
+            for (auto state: states) 
             {
-                _ss.push_back(it.second);
-                caled.insert(it.second);
+                for (auto it: state->scope_state) 
+                {
+                    if (!caled.count(it.second))
+                    {
+                        _ss.push_back(it.second);
+                        caled.insert(it.second);
+                    }
+                }
             }
             states = _ss;
         }
@@ -970,7 +1284,8 @@ class Pattern
 
     details::DFAPtr dfa;
     std::map<details::DFAPtr, details::DFAPtr> next;
-    bool begin, end;
+    bool begin;
+    bool end;
 
   public:
     Pattern(const std::string &pattern)
@@ -989,9 +1304,18 @@ class Pattern
 
         while (*reading)
         {
-            if (state->contains_scope(*reading)) state = state->get_next(*reading);
-            else if (end) return "";
-            else break;
+            if (state->contains_scope(*reading))
+            {
+                state = state->get_next(*reading);
+            }
+            else if (end)
+            {
+                return "";
+            }
+            else
+            {
+                break;
+            }
 
             temp += *reading;
 

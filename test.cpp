@@ -4,12 +4,9 @@
 
 #include "yare.hpp"
 
-
 using namespace std;
 
-
 //--DEFINE HELPFUL MACROS--
-
 
 #define TEST(NAME)									static int NAME = [](){
 #define END											return 0; }();
@@ -21,8 +18,7 @@ using namespace std;
 #define ASSERT_MCS(PATTERN, STR, TARGET)			PRTL; assert(yare::matches(PATTERN, STR) == TARGET)
 
 
-//--TEST NOrMAL MATCH METHOD--
-
+//--TEST NORMAL MATCH METHOD--
 
 TEST(BLANK)
 	ASSERT("", "", "");
@@ -165,7 +161,6 @@ END
 
 //--TEST SEARCH METHOD--
 
-
 TEST(SEARCH_M)
 	ASSERT_SC("ab*c+", "aaaaaabbbbaaabababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbababcccccc", "abcccccc");
 	ASSERT_SC("(?:<sec>25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9][0-9]|[0-9])(\\.(?:<sec>)){3}", "ipv4: 192.168.1.1", "192.168.1.1");
@@ -192,6 +187,13 @@ TEST(MATCHES_M)
 			"accccb"
 		})
 	);
+END
+
+// --TEST CHINESE--
+TEST(COMMON_CH)
+	ASSERT("6+陈轶阳6+[^苏畅]*6+", "666陈轶阳666", "666陈轶阳666");
+	ASSERT("6+陈轶阳6+[^苏畅]*6+", "666陈轶阳666苏畅666", "666陈轶阳666");
+	ASSERT("6+陈轶阳6+[^苏畅]*6+", "666陈轶阳666陈凯666777", "666陈轶阳666陈凯666");
 END
 
 

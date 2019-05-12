@@ -97,28 +97,62 @@ using Scope  = std::pair<char32_t, char32_t>;
 using NFAPtr = std::shared_ptr<struct NFAState>;
 using DFAPtr = std::shared_ptr<struct DFAState>;
 
-inline std::set<Scope> SPACES
+inline std::set<Scope>
+SPACES
 {
     { 9, 13 },
     { 32, 32 }
 };
 
-inline std::set<Scope> DIGITS
+inline std::set<Scope>
+NOT_SPACES
+{
+    { kChar32Min, 8 },
+    { 14, 31 },
+    { 33, kChar32Max }
+};
+
+inline std::set<Scope>
+DIGITS
 {
     { 48, 57 }
 };
 
-inline std::set<Scope> LWORDS
+inline std::set<Scope>
+NOT_DIGITS
+{
+    { kChar32Min, 47 },
+    { 58, kChar32Max }
+};
+
+inline std::set<Scope>
+LWORDS
 {
     { 97, 122 }
 };
 
-inline std::set<Scope> UWORDS
+inline std::set<Scope>
+NOT_LWORDS
+{
+    { kChar32Min, 96 },
+    { 121, kChar32Max }
+};
+
+inline std::set<Scope>
+UWORDS
 {
     { 65, 90 }
 };
 
-inline std::set<Scope> WORD_S
+inline std::set<Scope>
+NOT_UWORDS
+{
+    { kChar32Min, 64 },
+    { 91, kChar32Max }
+};
+
+inline std::set<Scope>
+WORD_S
 {
     { 48, 57 },
     { 65, 90 },
@@ -126,32 +160,8 @@ inline std::set<Scope> WORD_S
     { 97, 122 }
 };
 
-inline std::set<Scope> NOT_SPACES
-{
-    { kChar32Min, 8 },
-    { 14, 31 },
-    { 33, kChar32Max }
-};
-
-inline std::set<Scope> NOT_DIGITS
-{
-    { kChar32Min, 47 },
-    { 58, kChar32Max }
-};
-
-inline std::set<Scope> NOT_LWORDS
-{
-    { kChar32Min, 96 },
-    { 121, kChar32Max }
-};
-
-inline std::set<Scope> NOT_UWORDS
-{
-    { kChar32Min, 64 },
-    { 91, kChar32Max }
-};
-
-inline std::set<Scope> NOT_WORD_S
+inline std::set<Scope>
+NOT_WORD_S
 {
     { kChar32Min, 47 },
     { 58, 64 },
@@ -160,7 +170,8 @@ inline std::set<Scope> NOT_WORD_S
     { 121, kChar32Max }
 };
 
-inline std::unordered_map<char32_t, std::set<Scope>> ECMAP
+inline std::unordered_map<char32_t, std::set<Scope>>
+ECMAP
 {
     {'s', SPACES}, {'S', NOT_SPACES},
     {'d', DIGITS}, {'D', NOT_DIGITS},
@@ -333,54 +344,72 @@ class NFAPair
     std::vector<Scope> cal_scopes(std::vector<Scope> &scopes)
     {
         std::vector<Scope> result;
-        std::sort(scopes.begin(), scopes.end(), [](Scope a, Scope b)
+        if (scopes.empty()) return result;
+
+        enum IndexType
         {
-            return a.first < b.first;
+            Start, End
+        };
+        std::vector<std::pair<char32_t, IndexType>> indexs;
+        
+        for (const auto &scope : scopes)
+        {
+            indexs.push_back({ scope.first, Start });
+            indexs.push_back({ scope.second, End });
+        }
+
+        std::sort(indexs.begin(), indexs.end(), [](const std::pair<char32_t, IndexType> &a, std::pair<char32_t, IndexType> &b)
+        {
+            if (a.first < b.first)
+            {
+                return true;
+            }
+            else if (a.first == b.first)
+            {
+                return a.second == Start;
+            }
+            else 
+            {
+                return false;
+            }
         });
-        for (auto &scope : scopes)
+
+        char32_t start;
+        int left = 0;
+        for (auto it = indexs.begin(); it != indexs.end(); ++it)
         {
-            if (result.empty())
+            if (left == 0)
             {
-                result.push_back(scope);
+                start = it->first;
+                ++left;
             }
-            else if (result.back().second < scope.first)
+            else if (it->second == Start)
             {
-                result.push_back(scope);
-            }
-            else
-            {
-                auto pre = result.back();
-                if (pre.first < scope.first)
+                if (it->first == start)
                 {
-                    result.back().second = scope.first - 1;
-                    if (pre.second < scope.second)
-                    {
-                        result.push_back({ scope.first, pre.second });
-                        result.push_back({ pre.second + 1, scope.second });
-                    }
-                    else
-                    {
-                        result.push_back(scope);
-                        if (pre.second > scope.second)
-                        {
-                            result.push_back({ scope.second + 1, pre.second });
-                        }
-                    }
+                    ++left;
+                    continue;
                 }
-                else // pre.first == scope.first
+                result.push_back({ start, it->first - 1 });
+                ++left;
+                start = it->first;
+            }
+            else // it->second == End
+            {
+                if (it->first < start)
                 {
-                    if (pre.second < scope.second)
-                    {
-                        result.push_back({ pre.second + 1, scope.second });
-                    }
-                    else if (pre.second > scope.second)
-                    {
-                        result.back().second = scope.second;
-                        result.push_back({ scope.second + 1, pre.second });
-                    }
+                    --left;
+                    continue;
+                }
+                result.push_back({ start, it->first });
+                --left;
+                if (left > 0)
+                {
+                    start = it->first + 1;
                 }
             }
         }
+
         return result;
     }
 

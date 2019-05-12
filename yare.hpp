@@ -12,6 +12,7 @@
 #include <utility>
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
 
 namespace yare
 {
@@ -159,7 +160,7 @@ inline std::set<Scope> NOT_WORD_S
     { 121, kChar32Max }
 };
 
-inline std::map<char32_t, std::set<Scope>> ECMAP
+inline std::unordered_map<char32_t, std::set<Scope>> ECMAP
 {
     {'s', SPACES}, {'S', NOT_SPACES},
     {'d', DIGITS}, {'D', NOT_DIGITS},
@@ -830,7 +831,7 @@ class Parse
   private:
     bool begin = false;
     bool end   = false;
-    std::map<std::string, std::shared_ptr<Node>> ref_map;
+    std::unordered_map<std::string, std::shared_ptr<Node>> ref_map;
     
     char32_t
     translate_escape_chr(const char32_t *&reading)
@@ -1289,7 +1290,7 @@ class Pattern
     }
 
     details::DFAPtr dfa;
-    std::map<details::DFAPtr, details::DFAPtr> next;
+    std::unordered_map<details::DFAPtr, details::DFAPtr> next;
     bool begin;
     bool end;
 
@@ -1304,7 +1305,8 @@ class Pattern
     std::string
     match(const std::string &str)
     {
-        std::u32string u32str = details::str_to_utf8(str), res, temp;
+        std::u32string u32str = details::str_to_utf8(str),
+                       res, temp;
         auto reading = u32str.c_str();
         auto state = dfa;
 
@@ -1339,19 +1341,169 @@ class Pattern
     std::string
     search(const std::string &str)
     {
-        return "";
+        if (begin)
+        {
+            return match(str);
+        }
+
+        std::unordered_map<details::DFAPtr, std::u32string> mapstr 
+        {
+            { dfa, std::u32string() }
+        };
+        std::u32string u32str = details::str_to_utf8(str),
+                       res, temp;
+
+        auto reading = u32str.c_str();
+        auto state = dfa;
+
+        while (*reading)
+        {
+            if (state->contains_scope(*reading))
+            {
+                state = state->get_next(*reading);
+                mapstr[state] = (temp += *reading);
+                if (state->state == details::DFAState::State::END)
+                {
+                    res = u32str.substr(reading - u32str.c_str() - temp.size() + 1, temp.size());
+                }
+            }
+            else if (!end && res.size())
+            {
+                return details::utf8_to_str(res);
+            }
+            else if (next.count(state))
+            {
+                state = next[state];
+                temp = mapstr[state];
+                continue;
+            }
+            else
+            {
+                mapstr[state] = temp = details::str_to_utf8("");
+            }
+            ++reading;
+        }
+        return end
+            ? details::utf8_to_str(temp)
+            : details::utf8_to_str(res);
     }
 
     std::string
     replace(const std::string &str, const std::string &target)
     {
-        return "";
+        if (begin)
+        {
+            return target + str.substr(match(str).size());
+        }
+
+        std::unordered_map<details::DFAPtr, std::u32string> mapstr
+        {
+            { dfa, std::u32string() }
+        };
+        std::u32string u32str = details::str_to_utf8(str),
+                       u32tar = details::str_to_utf8(target),
+                       ret, res, temp;
+
+        auto reading = u32str.c_str();
+        auto state = dfa;
+
+        while (*reading)
+        {
+            if (state->contains_scope(*reading))
+            {
+                state = state->get_next(*reading);
+                mapstr[state] = (temp += *reading);
+                if (state->state == details::DFAState::State::END)
+                {
+                    res = u32str.substr(reading - u32str.c_str() - temp.size() + 1, temp.size());
+                }
+            }
+            else if (!end && res.size())
+            {
+                ret += u32tar + temp.substr(res.size());
+                state = dfa;
+                res = temp = std::u32string();
+                continue;
+            }
+            else if (next.count(state))
+            {
+                state = next[state];
+                if (mapstr[state].size() < temp.size())
+                {
+                    ret += temp.substr(mapstr[state].size());
+                }
+                temp = mapstr[state];
+                continue;
+            }
+            else
+            {
+                mapstr[state] = temp = std::u32string();
+                ret += *reading;
+            }
+            ++reading;
+        }
+
+        if (res.size())
+        {
+            ret += u32tar + temp.substr(res.size());
+        }
+
+        return details::utf8_to_str(ret);
     }
 
     std::vector<std::string>
     matches(const std::string &str)
     {
-        return {};
+        std::vector<std::string> ret;
+
+        std::u32string u32str = details::str_to_utf8(str),
+                       res, temp;
+
+        auto reading = u32str.c_str();
+        auto state = dfa;
+
+        while (*reading)
+        {
+            if (state->contains_scope(*reading))
+            {
+                state = state->get_next(*reading);
+            }
+            else if (end)
+            {
+                return {};
+            }
+            else
+            {
+                state = dfa;
+                if (res.empty())
+                {
+                    ++reading;
+                }
+                else
+                {
+                    ret.push_back(details::utf8_to_str(res));
+                }
+                res = temp = std::u32string();
+                continue;
+            }
+
+            temp += *reading;
+
+            if (state->state == details::DFAState::State::END)
+            {
+                res += temp;
+                temp = std::u32string();
+            }
+
+            ++reading;
+        }
+
+        if (state->state == details::DFAState::State::END && !res.empty())
+        {
+            ret.push_back(details::utf8_to_str(res));
+        }
+
+        return ret;
     }
 };
 

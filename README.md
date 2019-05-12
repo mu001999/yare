@@ -1,5 +1,5 @@
-# yare, single-header-file
-yet another regular expression
+# yare
+yet another regular expression, single-header-file
 
 ---
 

@@ -1,4 +1,4 @@
-# yare
+# yare, single-header-file
 yet another regular expression
 
 ---

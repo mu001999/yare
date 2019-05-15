@@ -1,5 +1,6 @@
 # yare
-yet another regular expression, single-header-file
+Yet another regular expression, single-header-file, supports UTF-8 and ASCII only.
+there is a common regular expression, [commonregex](https://github.com/MU001999/commonregex), supports universal code
 
 ---
 

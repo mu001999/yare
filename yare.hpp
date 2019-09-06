@@ -284,7 +284,7 @@ class NFAPair
         std::vector<std::set<NFAPtr>> Q = {q0};
         std::list<std::set<NFAPtr>> work_list= {q0};
         std::vector<DFAPtr> mp = {std::make_shared<DFAState>(
-            (std::find(q0.begin(), q0.end(), end) != q0.end()) 
+            (std::find(q0.begin(), q0.end(), end) != q0.end())
             ? DFAState::State::END
             : DFAState::State::NORMAL
         )};
@@ -351,7 +351,7 @@ class NFAPair
             Start, End
         };
         std::vector<std::pair<char32_t, IndexType>> indexs;
-        
+
         for (const auto &scope : scopes)
         {
             indexs.push_back({ scope.first, Start });
@@ -368,7 +368,7 @@ class NFAPair
             {
                 return a.second < b.second;
             }
-            else 
+            else
             {
                 return false;
             }
@@ -638,7 +638,7 @@ class LeafNode : public Node
 
   public:
     LeafNode(char32_t c) : leaf(c) {}
-    
+
     virtual std::shared_ptr<NFAPair>
     compile()
     {
@@ -861,7 +861,7 @@ class Parse
     bool begin = false;
     bool end   = false;
     std::unordered_map<std::string, std::shared_ptr<Node>> ref_map;
-    
+
     char32_t
     translate_escape_chr(const char32_t *&reading)
     {
@@ -1111,7 +1111,7 @@ class Parse
         else if (*reading && *reading != '|' && *reading != ')')
         {
             node = *reading == '\\'
-                ? translate_echr2node(reading) 
+                ? translate_echr2node(reading)
                 : std::make_shared<LeafNode>(*reading);
         }
 
@@ -1281,7 +1281,7 @@ class Pattern
 
         while (states.size())
         {
-            for (auto state: states) 
+            for (auto state: states)
             {
                 for (auto it: state->scope_state)
                 {
@@ -1303,9 +1303,9 @@ class Pattern
             }
 
             std::vector<details::DFAPtr> _ss;
-            for (auto state: states) 
+            for (auto state: states)
             {
-                for (auto it: state->scope_state) 
+                for (auto it: state->scope_state)
                 {
                     if (!caled.count(it.second))
                     {
@@ -1375,7 +1375,7 @@ class Pattern
             return match(str);
         }
 
-        std::unordered_map<details::DFAPtr, std::u32string> mapstr 
+        std::unordered_map<details::DFAPtr, std::u32string> mapstr
         {
             { dfa, std::u32string() }
         };

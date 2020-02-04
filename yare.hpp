@@ -26,33 +26,33 @@ str_to_utf8(const std::string &str)
 {
     std::u32string result;
     auto reading = reinterpret_cast<const unsigned char *>(str.c_str());
-	while (*reading)
-	{
+    while (*reading)
+    {
         char32_t temp;
 
-		if (*reading < 0b10000000U)
+        if (*reading < 0b10000000U)
         {
             result.push_back(*reading++);
         }
-		else if (*reading < 0b11100000U)
-		{
-			(temp = *reading++) <<= 8;
-			result.push_back(temp |= *reading++);
-		}
-		else if (*reading < 0b11110000U)
-		{
-			(temp  = *reading++) <<= 8;
-			(temp |= *reading++) <<= 8;
-			result.push_back(temp |= *reading++);
-		}
-		else if (*reading < 0b11111000U)
-		{
-			(temp  = *reading++) <<= 8;
-			(temp |= *reading++) <<= 8;
-			(temp |= *reading++) <<= 8;
-			result.push_back(temp |= *reading++);
-		}
-		else
+        else if (*reading < 0b11100000U)
+        {
+            (temp = *reading++) <<= 8;
+            result.push_back(temp |= *reading++);
+        }
+        else if (*reading < 0b11110000U)
+        {
+            (temp  = *reading++) <<= 8;
+            (temp |= *reading++) <<= 8;
+            result.push_back(temp |= *reading++);
+        }
+        else if (*reading < 0b11111000U)
+        {
+            (temp  = *reading++) <<= 8;
+            (temp |= *reading++) <<= 8;
+            (temp |= *reading++) <<= 8;
+            result.push_back(temp |= *reading++);
+        }
+        else
         {
             break;
         }
@@ -1259,84 +1259,22 @@ class Pattern
 {
   private:
 
-    void cal_next()
-    {
-        if (dfa->scope_state.empty())
-        {
-            return;
-        }
-
-        std::set<details::DFAPtr> caled = {dfa};
-        std::vector<details::DFAPtr> states;
-
-        for (auto it: dfa->scope_state)
-        {
-            if (!caled.count(it.second))
-            {
-                next[it.second] = dfa;
-                caled.insert(it.second);
-                states.push_back(it.second);
-            }
-        }
-
-        while (states.size())
-        {
-            for (auto state: states)
-            {
-                for (auto it: state->scope_state)
-                {
-                    if (!caled.count(it.second))
-                    {
-                        auto _s = state;
-                        while (_s != dfa)
-                        {
-                            if (next[_s]->contains_scope(it.first))
-                            {
-                                next[it.second] = _s;
-                                break;
-                            }
-                            else _s = next[_s];
-                        }
-                        if (!next.count(it.second)) next[it.second] = dfa;
-                    }
-                }
-            }
-
-            std::vector<details::DFAPtr> _ss;
-            for (auto state: states)
-            {
-                for (auto it: state->scope_state)
-                {
-                    if (!caled.count(it.second))
-                    {
-                        _ss.push_back(it.second);
-                        caled.insert(it.second);
-                    }
-                }
-            }
-            states = _ss;
-        }
-    }
-
     details::DFAPtr dfa;
-    std::unordered_map<details::DFAPtr, details::DFAPtr> next;
-    bool begin;
-    bool end;
+    bool begin, end;
 
   public:
     Pattern(const std::string &pattern)
     {
         auto str = details::str_to_utf8(pattern);
         std::tie(dfa, begin, end) = details::Parse().gen_dfa(str.c_str());
-        cal_next();
     }
 
-    std::string
-    match(const std::string &str)
+    std::u32string
+    match(const std::u32string &str)
     {
-        std::u32string u32str = details::str_to_utf8(str),
-                       res, temp;
-        auto reading = u32str.c_str();
+        std::u32string res, temp;
+
+        auto reading = str.c_str();
         auto state = dfa;
 
         while (*reading)
@@ -1347,7 +1285,7 @@ class Pattern
             }
             else if (end)
             {
-                return "";
+                return std::u32string();
             }
             else
             {
@@ -1364,175 +1302,97 @@ class Pattern
             ++reading;
         }
 
-        return details::utf8_to_str(res);
+        return res;
     }
 
-    std::string
-    search(const std::string &str)
+    std::u32string
+    search(const std::u32string &str)
     {
         if (begin)
         {
             return match(str);
         }
 
-        std::unordered_map<details::DFAPtr, std::u32string> mapstr
+        std::u32string res;
+        for (std::size_t i = 0; i < str.size(); ++i)
         {
-            { dfa, std::u32string() }
-        };
-        std::u32string u32str = details::str_to_utf8(str),
-                       res, temp;
-
-        auto reading = u32str.c_str();
-        auto state = dfa;
-
-        while (*reading)
-        {
-            if (state->contains_scope(*reading))
+            res = match(str.substr(i));
+            if (!res.empty())
             {
-                state = state->get_next(*reading);
-                mapstr[state] = (temp += *reading);
-                if (state->state == details::DFAState::State::END)
-                {
-                    res = u32str.substr(reading - u32str.c_str() - temp.size() + 1, temp.size());
-                }
+                return res;
             }
-            else if (!end && res.size())
-            {
-                return details::utf8_to_str(res);
-            }
-            else if (next.count(state))
-            {
-                state = next[state];
-                temp = mapstr[state];
-                continue;
-            }
-            else
-            {
-                mapstr[state] = temp = details::str_to_utf8("");
-            }
-            ++reading;
         }
-        return end
-            ? details::utf8_to_str(temp)
-            : details::utf8_to_str(res);
+
+        return res;
     }
 
-    std::string
-    replace(const std::string &str, const std::string &target)
+    std::u32string
+    replace(const std::u32string &str, const std::u32string &target)
     {
         if (begin)
         {
             return target + str.substr(match(str).size());
         }
 
-        std::unordered_map<details::DFAPtr, std::u32string> mapstr
+        std::u32string res;
+        for (std::size_t i = 0; i < str.size(); ++i)
         {
-            { dfa, std::u32string() }
-        };
-        std::u32string u32str = details::str_to_utf8(str),
-                       u32tar = details::str_to_utf8(target),
-                       ret, res, temp;
-
-        auto reading = u32str.c_str();
-        auto state = dfa;
-
-        while (*reading)
-        {
-            if (state->contains_scope(*reading))
+            auto tmp = match(str.substr(i));
+            if (tmp.empty())
             {
-                state = state->get_next(*reading);
-                mapstr[state] = (temp += *reading);
-                if (state->state == details::DFAState::State::END)
-                {
-                    res = u32str.substr(reading - u32str.c_str() - temp.size() + 1, temp.size());
-                }
-            }
-            else if (!end && res.size())
-            {
-                ret += u32tar + temp.substr(res.size());
-                state = dfa;
-                res = temp = std::u32string();
-                continue;
-            }
-            else if (next.count(state))
-            {
-                state = next[state];
-                if (mapstr[state].size() < temp.size())
-                {
-                    ret += temp.substr(mapstr[state].size());
-                }
-                temp = mapstr[state];
-                continue;
+                res += str[i];
             }
             else
             {
-                mapstr[state] = temp = std::u32string();
-                ret += *reading;
+                res += target;
+                i += tmp.size() - 1;
             }
-            ++reading;
         }
 
-        if (res.size())
-        {
-            ret += u32tar + temp.substr(res.size());
-        }
+        return res;
+    }
 
-        return details::utf8_to_str(ret);
+    std::string
+    match(const std::string &str)
+    {
+        return details::utf8_to_str(match(details::str_to_utf8(str)));
+    }
+
+    std::string
+    search(const std::string &str)
+    {
+        return details::utf8_to_str(search(details::str_to_utf8(str)));
+    }
+
+    std::string
+    replace(const std::string &str, const std::string &target)
+    {
+        return details::utf8_to_str(
+            replace(details::str_to_utf8(str),
+                details::str_to_utf8(target))
+        );
     }
 
     std::vector<std::string>
     matches(const std::string &str)
     {
-        std::vector<std::string> ret;
-
-        std::u32string u32str = details::str_to_utf8(str),
-                       res, temp;
-
-        auto reading = u32str.c_str();
-        auto state = dfa;
-
-        while (*reading)
+        if (begin)
         {
-            if (state->contains_scope(*reading))
-            {
-                state = state->get_next(*reading);
-            }
-            else if (end)
-            {
-                return {};
-            }
-            else
-            {
-                state = dfa;
-                if (res.empty())
-                {
-                    ++reading;
-                }
-                else
-                {
-                    ret.push_back(details::utf8_to_str(res));
-                }
-                res = temp = std::u32string();
-                continue;
-            }
-
-            temp += *reading;
-
-            if (state->state == details::DFAState::State::END)
-            {
-                res += temp;
-                temp = std::u32string();
-            }
-
-            ++reading;
+            return {match(str)};
         }
 
-        if (state->state == details::DFAState::State::END && !res.empty())
+        std::vector<std::string> res;
+        for (std::size_t i = 0; i < str.size(); ++i)
         {
-            ret.push_back(details::utf8_to_str(res));
+            auto tmp = match(str.substr(i));
+            if (!tmp.empty())
+            {
+                res.push_back(tmp);
+                i += tmp.size() - 1;
+            }
         }
 
-        return ret;
+        return res;
     }
 };
 
